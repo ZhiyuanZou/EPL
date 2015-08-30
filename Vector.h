@@ -1,271 +1,448 @@
-//
-//  Vector.h
-//  project1a
-//
-//  Created by zhiyuan zou on 1/28/15.
-//  Copyright (c) 2015 zhiyuan zou. All rights reserved.
-//
-#pragma once
-#ifndef _Vector_h
-#define _Vector_h
-using std::cout;
-using std::endl;
-namespace epl{
+/*
+ * Vector.h
+ *
+ *  Created on: Jan 29, 2013
+ *      Author: eplguest
+ *  Edited on: Mar 25, 2015
+ *      Author: eplta
+ */
+
+#ifndef VECTOR_HPP_
+#define VECTOR_HPP_
+
+#include "InstanceCounter.h"
+#include <cstdint>
+#include <iterator>
+#include <stdexcept>
+#include <utility>
+
+namespace epl {
     
     template <typename T>
     class vector {
     private:
-        T * start,*first,*end,*p_end;
+        /*
+         * The element data is managed using four pointers
+         * sbegin : storage begin -- address of the start of the allocated storage
+         * dbegin : data begin -- address of the first initialized element in the vector
+         * dend : data end -- address (one after) the last initialized element in vector
+         * send : storage end -- address (one after) the last storage location
+         * The capacity at the front of the vector is dbegin - sbegin
+         * The capacity at the back of the vector is send - dend
+         * The number of elements is dend - dbegin
+         * The size of the storage is send - sbegin
+         */
+        T* sbegin; // start of storage array
+        T* send; // end of storage array
+        T* dbegin; // start of data
+        T* dend; // end of data
+        
+        const uint64_t minimum_capacity = 8;
     public:
-        /*******/
-        /*additional methods for test, should delete before submit*/
-        void printv(void){
-            cout<<"The size of the vector is "<<size()<<endl;
-            T* current=first;
-            while(current!=end){
-            cout<<*current<<", ";
-                current++;
-            }
-            cout<<endl;
-        }
-        /*******/
-        vector(void){
-            start=(T*)::operator new(8*sizeof(T));
-            first=start;
-            end=first;
-            p_end=start+8;
-        }
-        vector(vector&& rhs){
-            uint64_t n=rhs.size();
-            T* newstart=(T*)::operator new(n*sizeof(T));
-            T* newend=newstart;
-            for(uint64_t i=0;i<n;i++){
-                new(newend) T(std::move(rhs[i]));
-                
-                newend++;
-            }
-            //if(n!=0) ::operator delete(start); // if n==0, the second time it will crash, not sure why
-            start=newstart;
-            first=start;
-            end=newend;
-            p_end=end;
-        }
-        vector(const vector& rhs){
-            copy(rhs);
-        }
-        explicit vector(uint64_t n){
-            if(n==0) vector();
-            else{
-                start=(T*)::operator new(n*sizeof(T));
-                T* temp=start;
-                end=start+n;
-                while(temp!=end){
-                    new(temp) T{};
-                    temp++;
-                }
-                first=start;
-                p_end=end;
-            }
-        }
-        uint64_t size(void) const{
-            return end-first;
-        }
-        T& operator[](uint64_t i){
-            if(i>=size()){throw std::out_of_range{"Index out of boundary!"};}
-            else{
-                return *(first+i);
-            }
-        }
-        const T& operator[](uint64_t i) const{
-            if(i>=size()){throw std::out_of_range{"Index out of boundary!"};}
-            else{
-                return *(first+i);
-            }
-        }
-        void push_back(const T& ele){
-            if(end!=p_end){
-                new(end) T{ele};
-                end++;
-            }else if(first!=start){
-                T* temp=first;
-                T* newend=start;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-           //         temp->~T();
-                    newend++;
-                    temp++;
-                }
-                new(newend) T{ele};
-                newend++;
-                end=newend;
-                first=start;
-            }else{
-                uint64_t n=2*size();
-                T* newstart=(T*)::operator new(n*sizeof(T));
-                T* temp=first;
-                T* newend=start;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-            //        temp->~T();
-                    newend++;
-                    temp++;
-                }
-                new(newend) T{ele};
-                destroy();
-                newend++;
-                end=newend;
-                start=newstart;
-                p_end=start+n;
-                first=start;
-            }
-        }
-        void push_back(T&& ele){
-            if(end!=p_end){
-                new(end) T{std::move_if_noexcept(ele)};
-                end++;
-            }else if(first!=start){
-                T* temp=first;
-                T* newend=start;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-                    //         temp->~T();
-                    newend++;
-                    temp++;
-                }
-                new(newend) T{std::move_if_noexcept(ele)};
-                newend++;
-                end=newend;
-                first=start;
-            }else{
-                uint64_t n=2*size();
-                T* newstart=(T*)::operator new(n*sizeof(T));
-                T* temp=first;
-                T* newend=start;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-                    //        temp->~T();
-                    newend++;
-                    temp++;
-                }
-                new(newend) T{std::move_if_noexcept(ele)};
-                destroy();
-                newend++;
-                end=newend;
-                start=newstart;
-                p_end=start+n;
-                first=start;
-            }
-        }
-        void pop_back(void){
-            if(size()==0) {throw std::out_of_range{"The Vector is empty!"};}
-            else{
-                end--;
-                end->~T();
-            }
-        }
-        void pop_front(void){
-            if(size()==0) {throw std::out_of_range{"The Vector is empty!"};}
-            else{
-                first->T::~T();
-                first++;
-            }
+        using value_type=T;
+        vector(void) {
+            uint64_t capacity = minimum_capacity;
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            send = sbegin + capacity;
+            dbegin = dend = sbegin;
+            
+            InstanceCounter();
         }
         
-        void push_front(T&& ele){
-            if(first!=start){
-                first--;
-                new(first) T{std::move_if_noexcept(ele)};
-            }else if(end!=p_end){
-                T* temp=end-1;
-                T* newend=p_end-1;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-                    //         temp->~T();
-                    newend--;
-                    temp--;
-                }
-                new(newend) T{std::move_if_noexcept(ele)};
-                first=newend;
-                end=p_end;
+        explicit vector(uint64_t sz) {
+            uint64_t capacity = sz;
+            if (sz == 0) { capacity = minimum_capacity; }
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            send = sbegin + capacity;
+            dbegin = dend = sbegin;
+            for (uint64_t k = 0; k < sz; k += 1) {
+                new (dend) T();
+                ++dend;
             }
-            else{
-                uint64_t n=2*(p_end-start);
-                uint64_t i;
-                T* newstart=(T*)::operator new(n*sizeof(T));
-                T* newend=newstart+n-1;
-                T* temp=end-1;
-                for(i=0;i<size();i++){
-                    new(newend) T{std::move(*temp)};
-                    newend--;temp--;
-                }
-                new(newend) T{std::move_if_noexcept(ele)};
-                ::operator delete(start);
-                start=newstart;
-                first=newend;
-                p_end=start+n;
-                end=p_end;
-            }
+            
+            InstanceCounter();
         }
         
-        void push_front(const T& ele){
-            if(first!=start){
-                first--;
-                new(first) T{ele};
-                
-            }else if(end!=p_end){
-                T* temp=end-1;
-                T* newend=p_end-1;
-                for(uint64_t i=0;i<size();i++){
-                    new(newend) T{std::move_if_noexcept(*temp)};
-                    //         temp->~T();
-                    newend--;
-                    temp--;
-                }
-                new(newend) T{ele};
-                first=newend;
-                end=p_end;
-            }
-            else{
-                uint64_t n=2*(p_end-start);
-                uint64_t i;
-                T* newstart=(T*)::operator new(n*sizeof(T));
-                T* newend=newstart+n-1;
-                T* temp=end-1;
-                for(i=0;i<size();i++){
-                    new(newend) T{std::move(*temp)};
-                    newend--;temp--;
-                }
-                new(newend) T{ele};
-                ::operator delete(start);
-                start=newstart;
-                first=newend;
-                p_end=start+n;
-                end=p_end;
-            }
+        vector(const vector<T>& that) {
+            std::cout << "epl::vector copy constructor" << std::endl;
+            copy(that);
+            
+            InstanceCounter();
         }
-        ~vector(){destroy();}
+        
+        template <typename AltType>
+        vector(const vector<AltType>& that) {
+            uint64_t capacity = that.size();
+            if (capacity == 0) { capacity = minimum_capacity; }
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            send = sbegin + capacity;
+            dbegin = dend = sbegin;
+            for (uint64_t k = 0; k < capacity; k += 1) {
+                new (dend) T(that[k]);
+                ++dend;
+            }
+            
+            InstanceCounter();
+        }
+        
+        template <typename Iterator>
+        vector(Iterator b, Iterator e) {
+            constructFromIterator(b, e, typename std::iterator_traits<Iterator>::iterator_category());
+            
+            InstanceCounter();
+        }
+        
+        vector(std::initializer_list<T> il) :
+        vector(il.begin(), il.end()) {
+        }
+        
+        vector(vector<T>&& that) {
+            move(std::move(that));
+            
+            InstanceCounter();
+        }
+        
+        ~vector(void) { destroy(); }
+        
+        vector<T>& operator=(const vector<T>& that) {
+            if (this != &that) {
+                destroy();
+                copy(that);
+            }
+            return *this;
+        }
+        
+        vector<T>& operator=(vector<T>&& that) {
+            destroy();
+            move(std::move(that));
+            return *this;
+        }
+        
+        uint64_t size(void) const { return dend - dbegin; }
+        
+        T& operator[](uint64_t k) {
+            T* p = dbegin + k;
+            if (p >= dend) { throw std::out_of_range("subscript out of range"); }
+            return *p;
+        }
+        
+        const T& operator[](uint64_t k) const {
+            const T* p = dbegin + k;
+            if (p >= dend) { throw std::out_of_range("subscript out of range"); }
+            return *p;
+        }
+        
+        void push_back(const T& that) {
+            T temp(that);
+            ensure_back_capacity(1);
+            new (dend) T(std::move(temp));
+            ++dend;
+        }
+        
+        void push_back(T&& that) {
+            T temp(std::move(that));
+            ensure_back_capacity(1);
+            new (dend) T(std::move(temp));
+            ++dend;
+        }
+        
+        template <typename... Args>
+        void emplace_back(Args... args) {
+            ensure_back_capacity(1);
+            new(dend) T(args...);
+        }
+        
+        void push_front(const T& that) {
+            ensure_front_capacity(1);
+            --dbegin;
+            new (dbegin) T(that);
+        }
+        
+        void push_front(T&& that) {
+            ensure_front_capacity(1);
+            --dbegin;
+            new (dbegin) T(std::move(that));
+        }
+        
+        template <typename... Args>
+        void emplace_front(Args... args) {
+            ensure_front_capacity(1);
+            --dbegin;
+            new (dbegin) T(args...);
+        }
+        
+        void pop_back(void) {
+            if (dbegin == dend) { throw std::out_of_range("pop back from empty vector"); }
+            --dend;
+            dend->~T();
+        }
+        
+        void pop_front(void) {
+            if (dbegin == dend) { throw std::out_of_range("pop back from empty Vector"); }
+            dbegin->~T();
+            ++dbegin;
+        }
+        
+        T& front(void) {
+            if (dbegin == dend) { throw std::out_of_range("front called on empty Vector"); }
+            return *dbegin;
+        }
+        
+        const T& front(void) const {
+            if (dbegin == dend) { throw std::out_of_range("front called on empty Vector"); }
+            return *dbegin;
+        }
+        
+        T& back(void) {
+            if (dbegin == dend) { throw std::out_of_range("back called on empty Vector"); }
+            return *(dend - 1);
+        }
+        
+        const T& back(void) const {
+            if (dbegin == dend) { throw std::out_of_range("back called on empty Vector"); }
+            return *(dend - 1);
+        }
+        
+        class iterator;
+        class const_iterator : public std::iterator<std::random_access_iterator_tag, T> {
+            const vector<T>* parent;
+            uint64_t index;
+            const T* ptr;
+            
+            using Same = const_iterator;
+            
+        public:
+            const_iterator(void) {
+                index = 0;
+                ptr = nullptr;
+                parent = nullptr;
+            }
+            
+            const T& operator*(void) const {
+                return *ptr;
+            }
+            
+            Same& operator++(void) {
+                ++ptr;
+                ++index;
+                return *this;
+            }
+            
+            Same operator++(int) {
+                Same t(*this);
+                this->operator++();
+                return t;
+            }
+            
+            Same& operator--(void) {
+                --ptr;
+                --index;
+                return *this;
+            }
+            
+            
+            Same operator--(int) {
+                Same t(*this);
+                this->operator--();
+                return t;
+            }
+            
+            int64_t operator-(const const_iterator that) const {
+                return this->ptr - that.ptr;
+            }
+            
+            const_iterator operator+(int64_t k) {
+                return iterator(parent, ptr + k);
+            }
+            
+            bool operator==(const Same& that) const {
+                return this->parent == that.parent
+                && this->ptr == that.ptr
+                ;
+            }
+            
+            bool operator!=(const Same& that) const {
+                return ! (*this == that);
+            }
+            
+            friend vector<T>;
+            friend vector<T>::iterator;
+            
+        private:
+            const_iterator(const vector<T>* parent, const T* ptr) {
+                this->parent = parent;
+                this->ptr = ptr;
+                this->index = ptr - parent->dbegin;
+            }
+            
+        };
+        
+        class iterator : public const_iterator {
+            using Same = iterator;
+            using Base = const_iterator;
+        public:
+            iterator(void) {}
+            
+            T& operator*(void) const {
+                return const_cast<T&>(const_iterator::operator*());
+            }
+            
+            iterator operator+(int64_t k) {
+                const_iterator::operator+(k); //calls checkRevision for us
+                return iterator(const_iterator::parent, const_iterator::ptr + k);
+            }
+            Same& operator++(void) { Base::operator++(); return *this; }
+            Same operator++(int) { Same t(*this); operator++(); return t; }
+            Same& operator--(void) { Base::operator--(); return *this; }
+            Same operator--(int) { Same t(*this); operator--(); return t; }
+        private:
+            friend vector<T>;
+            iterator(const vector<T>* parent, const T* ptr) : const_iterator(parent, ptr) { }
+        };
+        
+        const_iterator begin(void) const { return const_iterator(this, dbegin); }
+        iterator begin(void) { return iterator(this, dbegin); }
+        
+        const_iterator end(void) const { return const_iterator(this, dend); }
+        iterator end(void) { return iterator(this, dend); }
+        
     private:
-        void copy(const vector& rhs){
-            uint64_t n=rhs.size();
-            start=(T*)::operator new(n*sizeof(T));
-            first=start;
-            p_end=start+n;
-            end=first;
-            for(uint64_t i=0;i<n;i++){
-                new(end) T(rhs[i]);
-                end++;
+        void destroy(void) {
+            if (sbegin != nullptr) {
+                while (dbegin != dend) {
+                    dbegin->~T();
+                    ++dbegin;
+                }
+                operator delete(sbegin);
             }
         }
-        void destroy(void){
-         
-            while(first!=end){
-                first->~T();
-                first++;
+        
+        void copy(const vector<T>& that) {
+            /* there is nothing preventing me from using the "private" parts of that
+             * as I implement this function (since this and that are the same type)
+             * However... someday I might want to have a member template where that
+             * is a different vector type (i.e., that has a different T).
+             * Since I can implement this function using only the public methods
+             * on that, I get more flexibility (should I want to copy this code later)
+             */
+            uint64_t capacity = that.size();
+            if (capacity < minimum_capacity) { capacity = minimum_capacity; }
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            dbegin = dend = sbegin;
+            for (uint64_t k = 0; k < that.size(); k += 1) {
+                new (dend) T(that[k]);
+                ++dend;
             }
-            ::operator delete(start);
         }
+        
+        void move(vector<T>&& that) {
+            sbegin = that.sbegin;
+            send = that.send;
+            dbegin = that.dbegin;
+            dend = that.dend;
+            that.sbegin = that.send = that.dbegin = that.dend = nullptr;
+        }
+        
+        template <typename Iterator>
+        void constructFromIterator(Iterator b, Iterator e, std::random_access_iterator_tag) {
+            uint64_t capacity = (uint64_t) (e - b);
+            if (capacity < minimum_capacity) { capacity = minimum_capacity; }
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            dbegin = dend = sbegin;
+            while (b != e) {
+                new (dend) T(*b);
+                ++dend;
+                ++b;
+            }
+        }
+        
+        template <typename Iterator>
+        void constructFromIterator(Iterator b, Iterator e, std::forward_iterator_tag) {
+            uint64_t capacity = minimum_capacity;
+            sbegin = reinterpret_cast<T*>(operator new(capacity * sizeof(T)));
+            dbegin = dend = sbegin;
+            while (b != e) {
+                push_back(*b);
+                ++b;
+            }
+        }
+        
+        void ensure_back_capacity(uint64_t back_capacity) {
+            if (back_capacity <= (uint64_t) (send - dend)) { // sufficient capacity
+                return;
+            }
+            
+            /* try doubling capacity */
+            uint64_t capacity = 2 * (send - sbegin);
+            
+            while (capacity < back_capacity) {
+                capacity *= 2;
+            }
+            
+            /* set the back_capacity to either half of the excess capacity we have
+             * or to the requested capacity (back_capacity), whichever is greater.
+             */
+            uint64_t excess_capacity = capacity - size();
+            if (back_capacity < excess_capacity / 2) { back_capacity = excess_capacity / 2; }
+            
+            T* new_storage = reinterpret_cast<T*>(operator new(sizeof(T) * capacity));
+            T* new_data = new_storage + capacity - back_capacity - size();
+            T* new_data_end = new_data;
+            
+            /* move the elements (and deconstruct the originals) */
+            while (dbegin != dend) {
+                new (new_data_end) T(std::move(*dbegin));
+                dbegin->~T();
+                ++dbegin;
+                ++new_data_end;
+            }
+            operator delete(sbegin);
+            
+            sbegin = new_storage;
+            send = sbegin + capacity;
+            dbegin = new_data;
+            dend = new_data_end;
+        }
+        
+        void ensure_front_capacity(uint64_t front_capacity) {
+            if (front_capacity <= (uint64_t) (dbegin - sbegin)) { // sufficient capacity
+                return;
+            }
+            
+            /* try doubling capacity */
+            uint64_t capacity = 2 * (send - sbegin);
+            
+            while (capacity < front_capacity) {
+                capacity *= 2;
+            }
+            
+            /* set the back_capacity to either half of the excess capacity we have
+             * or to the requested capacity (back_capacity), whichever is greater.
+             */
+            uint64_t excess_capacity = capacity - size();
+            if (front_capacity < excess_capacity / 2) { front_capacity = excess_capacity / 2; }
+            
+            T* new_storage = reinterpret_cast<T*>(operator new(sizeof(T) * capacity));
+            T* new_data = new_storage + front_capacity;
+            T* new_data_end = new_data;
+            
+            /* move the elements (and deconstruct the originals) */
+            while (dbegin != dend) {
+                new (new_data_end) T(std::move(*dbegin));
+                dbegin->~T();
+                ++dbegin;
+                ++new_data_end;
+            }
+            operator delete(sbegin);
+            
+            sbegin = new_storage;
+            send = sbegin + capacity;
+            dbegin = new_data;
+            dend = new_data_end;
+        }
+        
     };
     
-} //namespace epl
+} //epl namespace
 
-#endif /* _Vector_h */
+#endif /* VECTOR_HPP_ */
